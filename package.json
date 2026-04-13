@@ -1,0 +1,17 @@
+{
+  "name": "disaster-management",
+  "version": "1.0.0",
+  "description": "ResqNet Survival Mesh - Emergency Communication Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}

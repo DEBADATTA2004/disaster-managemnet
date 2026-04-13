@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ResqNet | Survival Mesh</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        :root {
+            --primary: #FF5F5F; --secondary: #4285F4; --warning: #FFB74D;
+            --safe: #66BB6A; --bg: #0F1115; --surface: #1C1F26;
+            --text: #F1F1F1; --text-dim: #94A3B8; --glass: rgba(255, 255, 255, 0.05);
+        }
+        * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif; height: 100vh;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .header { padding: 40px 25px 20px; position: relative; text-align: center; }
+        .mesh-pulse {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 8px; height: 8px; background: var(--safe); border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(102, 187, 106, 0.7); animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(0.95); box-shadow: 0 0 0 0 rgba(102, 187, 106, 0.7); }
+            70% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 15px rgba(102, 187, 106, 0); }
+            100% { transform: translateX(-50%) scale(0.95); box-shadow: 0 0 0 0 rgba(102, 187, 106, 0); }
+        }
+        .header h1 { font-weight: 800; font-size: 28px; margin: 0; letter-spacing: -1px; }
+        .header span { color: var(--primary); }
+        #net-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; display: block; }
+
+        #app-scroll { flex: 1; overflow-y: auto; padding: 0 20px 120px; }
+        .category-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 25px 0; }
+        .cat-btn {
+            background: var(--surface); border: 1px solid var(--glass); border-radius: 16px;
+            padding: 15px 5px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;
+        }
+        .cat-btn.active { border-color: var(--primary); background: rgba(255, 95, 95, 0.1); }
+        .cat-btn i { font-size: 20px; color: var(--text-dim); }
+        .cat-btn.active i { color: var(--primary); }
+
+        .composer {
+            background: var(--surface); border-radius: 24px; padding: 20px;
+            border: 1px solid var(--glass); margin-bottom: 30px;
+        }
+        textarea {
+            width: 100%; background: transparent; border: none; color: var(--text);
+            font-family: inherit; font-size: 16px; resize: none; outline: none; min-height: 60px;
+        }
+        .broadcast-btn {
+            background: var(--primary); color: white; border: none; padding: 12px 20px;
+            border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 10px;
+        }
+
+        .mesh-card {
+            background: var(--surface); margin-bottom: 15px; padding: 20px;
+            border-radius: 20px; border-left: 4px solid var(--primary);
+        }
+        .card-food { border-left-color: var(--warning); }
+        .card-med { border-left-color: var(--secondary); }
+        .card-safe { border-left-color: var(--safe); }
+        
+        .user-info { font-weight: 800; font-size: 14px; margin-bottom: 5px; }
+        .card-body { font-size: 15px; color: #D1D5DB; }
+        .card-meta { font-size: 11px; color: var(--text-dim); margin-top: 10px; }
+
+        .tab-bar {
+            position: fixed; bottom: 20px; left: 20px; right: 20px;
+            background: rgba(28, 31, 38, 0.9); backdrop-filter: blur(10px);
+            border-radius: 24px; padding: 15px; display: flex; justify-content: space-around;
+        }
+        .tab-item { color: var(--text-dim); font-size: 22px; cursor: pointer; background: none; border: none; }
+        .tab-item.active { color: var(--primary); }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="mesh-pulse" id="status-dot"></div>
+        <h1>Resq<span>Net</span></h1>
+        <span id="net-label">LOCAL MESH ACTIVE</span>
+    </div>
+
+    <div id="app-scroll">
+        <div id="view-home">
+            <div class="category-grid">
+                <div class="cat-btn active" onclick="setCat('sos', this)"><i class="fa-solid fa-bolt"></i></div>
+                <div class="cat-btn" onclick="setCat('food', this)"><i class="fa-solid fa-utensils"></i></div>
+                <div class="cat-btn" onclick="setCat('med', this)"><i class="fa-solid fa-stethoscope"></i></div>
+                <div class="cat-btn" onclick="setCat('safe', this)"><i class="fa-solid fa-shield"></i></div>
+            </div>
+
+            <div class="composer">
+                <textarea id="msgInput" placeholder="Type emergency message..."></textarea>
+                <button class="broadcast-btn" onclick="broadcast()">BROADCAST TO MESH</button>
+            </div>
+
+            <div id="feed"></div>
+        </div>
+
+        <div id="view-map" class="hidden">
+            <div class="mesh-card">
+                <div class="user-info">Offline Map View</div>
+                <div class="card-body">
+                    <svg id="map-svg" width="100%" height="300" viewBox="0 0 400 300" style="border:1px solid var(--glass); border-radius:8px;">
+                        <!-- Simple map background -->
+                        <rect width="400" height="300" fill="var(--surface)" />
+                        <!-- Grid lines -->
+                        <line x1="0" y1="150" x2="400" y2="150" stroke="var(--text-dim)" stroke-width="0.5" opacity="0.3" />
+                        <line x1="200" y1="0" x2="200" y2="300" stroke="var(--text-dim)" stroke-width="0.5" opacity="0.3" />
+                        <!-- Safe locations (green) -->
+                        <circle cx="100" cy="80" r="8" fill="var(--safe)" />
+                        <circle cx="300" cy="200" r="8" fill="var(--safe)" />
+                        <!-- Mesh devices (blue) -->
+                        <circle cx="150" cy="120" r="6" fill="var(--secondary)" />
+                        <circle cx="250" cy="180" r="6" fill="var(--secondary)" />
+                        <!-- Your location (red) -->
+                        <circle cx="200" cy="150" r="10" fill="var(--primary)" stroke="white" stroke-width="2" />
+                        <text x="200" y="145" text-anchor="middle" fill="white" font-size="10">You</text>
+                    </svg>
+                    <p style="text-align:center; color:var(--text-dim); margin-top:10px; font-size:12px;">
+                        Green: Safe locations | Blue: Mesh devices | Red: Your position
+                    </p>
+                    <button class="broadcast-btn" onclick="scanDevices()" style="width:100%; margin-top:10px;">Scan for Nearby Devices</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-info" class="hidden">
+            <div class="mesh-card">
+                <div class="user-info">Info Center</div>
+                <div class="card-body">
+                    <h4>How to Use ResqNet</h4>
+                    <ul style="color:var(--text); font-size:14px; line-height:1.5;">
+                        <li><strong>Home:</strong> Select a category, type your message, and broadcast to the mesh.</li>
+                        <li><strong>Map:</strong> View nearby devices and safe locations. Scan for more devices.</li>
+                        <li><strong>Info:</strong> Get help and app status (you're here).</li>
+                    </ul>
+                    <h4>Emergency Tips</h4>
+                    <ul style="color:var(--text); font-size:14px; line-height:1.5;">
+                        <li>Stay calm and follow official instructions.</li>
+                        <li>Use SOS for urgent alerts only.</li>
+                        <li>Share food/water locations via the Food category.</li>
+                        <li>Report medical needs with the Med category.</li>
+                        <li>Mark safe zones using the Safe category.</li>
+                    </ul>
+                    <p style="color:var(--text-dim); font-size:12px; margin-top:15px;">
+                        Status: <span id="info-status">Checking...</span><br>
+                        Messages stored: <span id="info-count">0</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button class="tab-item active" onclick="setView('home', this)"><i class="fa-solid fa-house-signal"></i></button>
+        <button class="tab-item" onclick="setView('map', this)"><i class="fa-solid fa-map-location-dot"></i></button>
+        <button class="tab-item" onclick="setView('info', this)"><i class="fa-solid fa-circle-info"></i></button>
+    </div>
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+        let currentCat = 'sos';
+        let socket = null;
+
+        function updateStatusLabel(text, color) {
+            document.getElementById('net-label').innerText = text;
+            document.getElementById('status-dot').style.background = color;
+        }
+
+        function setOfflineMode() {
+            updateStatusLabel('MESH OFFLINE • LOCAL MODE', 'var(--warning)');
+            console.warn('Socket.io unavailable or mesh server not connected. Local mode enabled.');
+        }
+
+        function setOnlineMode() {
+            updateStatusLabel('MESH ONLINE • HUB CONNECTED', 'var(--safe)');
+        }
+
+        function connectToMeshHub() {
+            if (typeof io !== 'function') {
+                setOfflineMode();
+                return;
+            }
+
+            try {
+                socket = io();
+
+                socket.on('connect', () => {
+                    console.log('Connected to Mesh Hub successfully!');
+                    setOnlineMode();
+                    if (!document.getElementById('view-info').classList.contains('hidden')) {
+                        updateInfo();
+                    }
+                });
+
+                socket.on('connect_error', () => {
+                    setOfflineMode();
+                    if (!document.getElementById('view-info').classList.contains('hidden')) {
+                        updateInfo();
+                    }
+                });
+
+                socket.on('mesh-msg', (data) => {
+                    console.log('New message received from another device:', data);
+                    saveLocally(data);
+                    renderFeed();
+                });
+            } catch (error) {
+                console.error('Failed to initialize socket:', error);
+                setOfflineMode();
+            }
+        }
+
+        function setCat(cat, el) {
+            currentCat = cat;
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            renderFeed(); // Re-render feed with the new filter
+        }
+
+        function setView(view, el) {
+            document.querySelectorAll('.tab-item').forEach(btn => btn.classList.remove('active'));
+            el.classList.add('active');
+
+            document.getElementById('view-home').classList.toggle('hidden', view !== 'home');
+            document.getElementById('view-map').classList.toggle('hidden', view !== 'map');
+            document.getElementById('view-info').classList.toggle('hidden', view !== 'info');
+            
+            if (view === 'info') {
+                updateInfo();
+            }
+        }
+
+        function updateInfo() {
+            const statusEl = document.getElementById('info-status');
+            const countEl = document.getElementById('info-count');
+            
+            const isOnline = socket && socket.connected;
+            statusEl.textContent = isOnline ? 'Online - Connected to Mesh Hub' : 'Offline - Local Mode';
+            statusEl.style.color = isOnline ? 'var(--safe)' : 'var(--warning)';
+            
+            const history = JSON.parse(localStorage.getItem('mesh_history') || '[]');
+            countEl.textContent = history.length;
+        }
+
+        function scanDevices() {
+            const svg = document.getElementById('map-svg');
+          
+            for (let i = 0; i < 3; i++) {
+                const x = Math.random() * 350 + 25; // Avoid edges
+                const y = Math.random() * 250 + 25;
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', x);
+                circle.setAttribute('cy', y);
+                circle.setAttribute('r', '4');
+                circle.setAttribute('fill', 'var(--secondary)');
+                svg.appendChild(circle);
+            }
+            console.log('Scanned for nearby devices - added random points to map.');
+        }
+
+        function broadcast() {
+            const textInput = document.getElementById('msgInput');
+            const text = textInput.value.trim();
+            if (!text) return;
+
+            const msg = {
+                id: Date.now() + Math.random(),
+                cat: currentCat,
+                text: text,
+                user: 'Device_' + Math.floor(Math.random() * 1000),
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            if (socket && socket.connected) {
+                socket.emit('broadcast', msg);
+                console.log('Message sent to Mesh Hub');
+            } else {
+                console.log('Mesh Hub not connected. Saving locally only.');
+            }
+
+            saveLocally(msg);
+            renderFeed();
+            textInput.value = '';
+        }
+
+        function saveLocally(msg) {
+            const history = JSON.parse(localStorage.getItem('mesh_history') || '[]');
+            if (!history.find(m => m.id === msg.id)) {
+                history.unshift(msg);
+                if (history.length > 50) history.pop();
+                localStorage.setItem('mesh_history', JSON.stringify(history));
+            }
+        }
+
+        function renderFeed() {
+            const history = JSON.parse(localStorage.getItem('mesh_history') || '[]');
+            const feedContainer = document.getElementById('feed');
+            
+            // Filter messages: if 'sos' selected, show all; else show only that category
+            const filteredHistory = currentCat === 'sos' ? history : history.filter(m => m.cat === currentCat);
+            
+            if (filteredHistory.length === 0) {
+                const message = currentCat === 'sos' ? 'No messages on the mesh yet.' : `No ${currentCat} messages yet.`;
+                feedContainer.innerHTML = `<p style="text-align:center; color:var(--text-dim); margin-top:20px;">${message}</p>`;
+                return;
+            }
+
+            feedContainer.innerHTML = filteredHistory.map(m => `
+                <div class="mesh-card card-${m.cat}">
+                    <div class="user-info">
+                        <i class="fa-solid fa-circle-user"></i> ${m.user}
+                        <span style="float:right; font-weight:400; font-size:10px">${m.time}</span>
+                    </div>
+                    <div class="card-body">${m.text}</div>
+                    <div class="card-meta"><i class="fa-solid fa-tower-broadcast"></i> Received via Mesh</div>
+                </div>
+            `).join('');
+        }
+
+        connectToMeshHub();
+        renderFeed();
+    </script>
+</body>
+</html>
